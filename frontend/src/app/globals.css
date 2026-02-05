@@ -3,35 +3,61 @@
 @tailwind utilities;
 
 :root {
-  /* 背景色 */
+  /* Background Colors */
   --bg-primary: #F8FAFC;
   --bg-card: #FFFFFF;
   --bg-sidebar: #1E293B;
+  --bg-muted: #F1F5F9;
 
-  /* テキスト色 */
+  /* Text Colors */
   --text-primary: #0F172A;
   --text-secondary: #64748B;
+  --text-muted: #94A3B8;
+  --text-on-dark: #F8FAFC;
 
-  /* アクセントカラー */
+  /* Accent Colors */
   --accent-primary: #3B82F6;
+  --accent-primary-dark: #1D4ED8;
+  --accent-primary-light: #DBEAFE;
 
-  /* ステータス色 */
+  /* Status Colors */
   --status-success: #10B981;
+  --status-success-bg: #D1FAE5;
   --status-warning: #F59E0B;
+  --status-warning-bg: #FEF3C7;
   --status-error: #EF4444;
+  --status-error-bg: #FEE2E2;
 
-  /* フォント */
-  --font-primary: "Inter", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  /* Border Colors */
+  --border: #E2E8F0;
+  --border-light: #F1F5F9;
 
-  /* 角丸 */
+  /* Border Radius */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
 }
 
 body {
-  font-family: var(--font-primary);
-  background-color: var(--bg-primary);
+  background: var(--bg-primary);
   color: var(--text-primary);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-muted);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
 }
