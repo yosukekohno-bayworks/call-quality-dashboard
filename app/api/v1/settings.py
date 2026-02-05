@@ -202,53 +202,232 @@ async def delete_flow(
 
 
 # ============================================================
-# Analysis Prompts (stub for now)
+# Analysis Prompts
 # ============================================================
 
 
 @router.get("/prompts")
-async def list_prompts(current_user: QAUser):
-    """List all analysis prompts."""
-    # TODO: Implement prompt storage
+async def list_prompts(
+    current_user: QAUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    prompt_type: str | None = None,
+):
+    """List all analysis prompts for the tenant."""
+    from app.models.analysis_prompt import AnalysisPrompt, PromptType
+
+    query = select(AnalysisPrompt).where(
+        AnalysisPrompt.tenant_id == current_user.tenant_id
+    )
+
+    if prompt_type:
+        query = query.where(AnalysisPrompt.prompt_type == prompt_type)
+
+    query = query.order_by(AnalysisPrompt.prompt_type, AnalysisPrompt.name)
+
+    result = await db.execute(query)
+    prompts = result.scalars().all()
+
     return {
         "items": [
             {
-                "id": "quality_score",
-                "name": "品質スコア評価",
-                "description": "通話の品質を0-100で評価するプロンプト",
-                "prompt": "以下の通話内容を評価してください...",
-            },
-            {
-                "id": "summary",
-                "name": "通話要約",
-                "description": "通話内容を要約するプロンプト",
-                "prompt": "以下の通話内容を要約してください...",
-            },
-            {
-                "id": "emotion",
-                "name": "感情分析",
-                "description": "感情を分析するプロンプト",
-                "prompt": "以下の通話内容から感情を分析してください...",
-            },
+                "id": str(p.id),
+                "prompt_type": p.prompt_type,
+                "name": p.name,
+                "description": p.description,
+                "prompt_text": p.prompt_text,
+                "is_active": p.is_active,
+                "is_default": p.is_default,
+                "created_at": p.created_at.isoformat(),
+                "updated_at": p.updated_at.isoformat(),
+            }
+            for p in prompts
         ]
+    }
+
+
+@router.post("/prompts")
+async def create_prompt(
+    current_user: QAUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    prompt_type: str,
+    name: str,
+    prompt_text: str,
+    description: str | None = None,
+):
+    """Create a new analysis prompt."""
+    from app.models.analysis_prompt import AnalysisPrompt, PromptType
+
+    prompt = AnalysisPrompt(
+        tenant_id=current_user.tenant_id,
+        prompt_type=PromptType(prompt_type),
+        name=name,
+        description=description,
+        prompt_text=prompt_text,
+        is_active=True,
+        is_default=False,
+    )
+    db.add(prompt)
+    await db.commit()
+    await db.refresh(prompt)
+
+    return {
+        "id": str(prompt.id),
+        "prompt_type": prompt.prompt_type,
+        "name": prompt.name,
+        "description": prompt.description,
+        "prompt_text": prompt.prompt_text,
+        "is_active": prompt.is_active,
+        "created_at": prompt.created_at.isoformat(),
+    }
+
+
+@router.get("/prompts/{prompt_id}")
+async def get_prompt(
+    prompt_id: uuid.UUID,
+    current_user: QAUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Get a specific analysis prompt."""
+    from app.models.analysis_prompt import AnalysisPrompt
+
+    result = await db.execute(
+        select(AnalysisPrompt).where(
+            AnalysisPrompt.id == prompt_id,
+            AnalysisPrompt.tenant_id == current_user.tenant_id,
+        )
+    )
+    prompt = result.scalar_one_or_none()
+
+    if not prompt:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prompt not found",
+        )
+
+    return {
+        "id": str(prompt.id),
+        "prompt_type": prompt.prompt_type,
+        "name": prompt.name,
+        "description": prompt.description,
+        "prompt_text": prompt.prompt_text,
+        "is_active": prompt.is_active,
+        "is_default": prompt.is_default,
+        "created_at": prompt.created_at.isoformat(),
+        "updated_at": prompt.updated_at.isoformat(),
     }
 
 
 @router.put("/prompts/{prompt_id}")
 async def update_prompt(
-    prompt_id: str,
+    prompt_id: uuid.UUID,
     current_user: QAUser,
-    prompt: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    name: str | None = None,
     description: str | None = None,
+    prompt_text: str | None = None,
+    is_active: bool | None = None,
 ):
     """Update an analysis prompt."""
-    # TODO: Implement prompt storage
+    from app.models.analysis_prompt import AnalysisPrompt
+
+    result = await db.execute(
+        select(AnalysisPrompt).where(
+            AnalysisPrompt.id == prompt_id,
+            AnalysisPrompt.tenant_id == current_user.tenant_id,
+        )
+    )
+    prompt = result.scalar_one_or_none()
+
+    if not prompt:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prompt not found",
+        )
+
+    if name is not None:
+        prompt.name = name
+    if description is not None:
+        prompt.description = description
+    if prompt_text is not None:
+        prompt.prompt_text = prompt_text
+    if is_active is not None:
+        prompt.is_active = is_active
+
+    prompt.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(prompt)
+
     return {
-        "id": prompt_id,
-        "prompt": prompt,
-        "description": description,
-        "message": "Prompt updated (stub)",
+        "id": str(prompt.id),
+        "prompt_type": prompt.prompt_type,
+        "name": prompt.name,
+        "description": prompt.description,
+        "prompt_text": prompt.prompt_text,
+        "is_active": prompt.is_active,
+        "updated_at": prompt.updated_at.isoformat(),
     }
+
+
+@router.delete("/prompts/{prompt_id}")
+async def delete_prompt(
+    prompt_id: uuid.UUID,
+    current_user: QAUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Delete an analysis prompt."""
+    from app.models.analysis_prompt import AnalysisPrompt
+
+    result = await db.execute(
+        select(AnalysisPrompt).where(
+            AnalysisPrompt.id == prompt_id,
+            AnalysisPrompt.tenant_id == current_user.tenant_id,
+        )
+    )
+    prompt = result.scalar_one_or_none()
+
+    if not prompt:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prompt not found",
+        )
+
+    if prompt.is_default:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete default prompt",
+        )
+
+    await db.delete(prompt)
+    await db.commit()
+
+    return {"message": "Prompt deleted"}
+
+
+@router.post("/prompts/test")
+async def test_prompt(
+    current_user: QAUser,
+    prompt_text: str,
+    sample_transcript: str,
+):
+    """Test a prompt with sample transcript."""
+    from app.services.llm import get_llm_service
+
+    try:
+        llm_service = get_llm_service()
+        result = await llm_service._call_llm(
+            system_prompt=prompt_text,
+            user_prompt=f"## 通話内容:\n{sample_transcript}",
+            max_tokens=1000,
+        )
+        return {
+            "success": True,
+            "result": result,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
 
 
 # ============================================================
