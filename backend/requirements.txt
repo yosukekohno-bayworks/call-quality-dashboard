@@ -1,0 +1,52 @@
+# ===========================================
+# Call Quality Dashboard - Backend Dependencies
+# ===========================================
+
+# FastAPI Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Database
+sqlmodel==0.0.24
+asyncpg==0.30.0
+alembic==1.14.0
+greenlet==3.1.1
+
+# Redis & Celery
+redis==5.2.1
+celery[redis]==5.4.0
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.20
+
+# Google OAuth
+google-auth==2.37.0
+google-auth-oauthlib==1.2.1
+
+# Google Cloud
+google-cloud-storage==2.19.0
+
+# OpenAI (Whisper)
+openai==1.59.5
+
+# Hume AI
+# hume==0.7.4  # コメントアウト: 最新バージョン確認後に追加
+
+# HTTP Client
+httpx==0.28.1
+
+# Configuration
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+
+# Utilities
+python-dateutil==2.9.0.post0
+tenacity==9.0.0
+
+# Development
+pytest==8.3.4
+pytest-asyncio==0.25.2
+pytest-cov==6.0.0
+httpx==0.28.1

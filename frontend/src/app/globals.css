@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* 背景色 */
+  --bg-primary: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --bg-sidebar: #1E293B;
+
+  /* テキスト色 */
+  --text-primary: #0F172A;
+  --text-secondary: #64748B;
+
+  /* アクセントカラー */
+  --accent-primary: #3B82F6;
+
+  /* ステータス色 */
+  --status-success: #10B981;
+  --status-warning: #F59E0B;
+  --status-error: #EF4444;
+
+  /* フォント */
+  --font-primary: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* 角丸 */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+body {
+  font-family: var(--font-primary);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
