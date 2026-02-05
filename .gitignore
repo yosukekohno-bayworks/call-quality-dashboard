@@ -1,22 +1,35 @@
-# Dependencies
-node_modules/
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
 venv/
+ENV/
+env/
 .venv/
 
-# Environment
+# Environment variables
 .env
 .env.local
 .env.*.local
-
-# Credentials (機密情報)
-credentials/*.json
-!credentials/.gitkeep
 
 # IDE
 .idea/
@@ -25,32 +38,31 @@ credentials/*.json
 *.swo
 *~
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Build outputs
-.next/
-out/
-dist/
-build/
-*.egg-info/
-
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Test coverage
-coverage/
+# Testing
+.tox/
+.nox/
 .coverage
+.coverage.*
 htmlcov/
 .pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
 
-# Docker
-.docker/
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
-# Misc
-*.bak
-*.tmp
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Alembic
+alembic/versions/*.pyc
