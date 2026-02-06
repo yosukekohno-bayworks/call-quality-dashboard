@@ -14,6 +14,31 @@ from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 import sqlalchemy.dialects.postgresql as pg_dialect
 pg_dialect.JSONB = JSON
 
+# Patch UUID bind processor for SQLite compatibility
+# When deps.py queries User.id == user_id (string from JWT),
+# SQLAlchemy's UUID type tries to call .hex on the string and fails.
+import sqlalchemy.types as sa_types
+
+_orig_uuid_bind_processor = sa_types.Uuid.bind_processor
+
+
+def _patched_uuid_bind_processor(self, dialect):
+    orig = _orig_uuid_bind_processor(self, dialect)
+
+    def process(value):
+        if isinstance(value, str):
+            import uuid as _uuid
+            try:
+                value = _uuid.UUID(value)
+            except (ValueError, AttributeError):
+                pass
+        return orig(value) if orig else value
+
+    return process
+
+
+sa_types.Uuid.bind_processor = _patched_uuid_bind_processor
+
 import asyncio
 import uuid
 from collections.abc import AsyncGenerator
@@ -30,6 +55,12 @@ from app.main import app
 from app.api.deps import get_db
 from app.models.user import User, UserRole
 from app.models.tenant import Tenant
+from app.models.operator import Operator
+from app.models.operation_flow import OperationFlow
+from app.models.call_record import CallRecord, AnalysisStatus
+from app.models.analysis_result import AnalysisResult
+from app.models.emotion_data import EmotionData
+from app.models.analysis_prompt import AnalysisPrompt, PromptType
 from app.services.auth import create_tokens, get_password_hash
 
 
@@ -201,6 +232,176 @@ def create_auth_headers_for_user(user: User) -> dict[str, str]:
     """Helper function to create auth headers for any user."""
     tokens = create_tokens(str(user.id))
     return {"Authorization": f"Bearer {tokens.access_token}"}
+
+
+@pytest_asyncio.fixture
+async def test_operator(db_session: AsyncSession, test_tenant: Tenant) -> Operator:
+    """Create a test operator."""
+    operator = Operator(
+        id=uuid.uuid4(),
+        tenant_id=test_tenant.id,
+        biztel_operator_id="BIZ-OP-001",
+        name="Test Operator Agent",
+        is_active=True,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db_session.add(operator)
+    await db_session.commit()
+    await db_session.refresh(operator)
+    return operator
+
+
+@pytest_asyncio.fixture
+async def test_operation_flow(db_session: AsyncSession, test_tenant: Tenant) -> OperationFlow:
+    """Create a test operation flow."""
+    flow = OperationFlow(
+        id=uuid.uuid4(),
+        tenant_id=test_tenant.id,
+        name="Standard Inquiry Flow",
+        classification_criteria="General customer inquiry about products or services",
+        flow_definition={
+            "steps": [
+                {"id": "1", "name": "Greeting", "description": "Greet the customer"},
+                {"id": "2", "name": "Identify", "description": "Identify the issue"},
+                {"id": "3", "name": "Resolve", "description": "Resolve the issue"},
+                {"id": "4", "name": "Closing", "description": "Close the call"},
+            ]
+        },
+        is_active=True,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db_session.add(flow)
+    await db_session.commit()
+    await db_session.refresh(flow)
+    return flow
+
+
+@pytest_asyncio.fixture
+async def test_call_record(
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+    test_operator: Operator,
+) -> CallRecord:
+    """Create a test call record."""
+    call = CallRecord(
+        id=uuid.uuid4(),
+        tenant_id=test_tenant.id,
+        biztel_id="BIZTEL-CALL-001",
+        request_id="REQ-001",
+        event_datetime=datetime(2024, 1, 15, 10, 30, 0),
+        call_center_name="Support Center",
+        call_center_extension="1001",
+        business_label="Product Support",
+        operator_id=test_operator.id,
+        event_type="COMPLETEAGENT",
+        caller_number="03-1234-5678",
+        callee_number="0120-123-456",
+        wait_time_seconds=15,
+        talk_time_seconds=300,
+        analysis_status=AnalysisStatus.COMPLETED,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db_session.add(call)
+    await db_session.commit()
+    await db_session.refresh(call)
+    return call
+
+
+@pytest_asyncio.fixture
+async def test_analysis_result(
+    db_session: AsyncSession,
+    test_call_record: CallRecord,
+) -> AnalysisResult:
+    """Create a test analysis result."""
+    analysis = AnalysisResult(
+        id=uuid.uuid4(),
+        call_record_id=test_call_record.id,
+        transcript="Customer: Hello, I need help with my order.\nAgent: Of course, I'd be happy to help.",
+        flow_compliance=True,
+        compliance_details={"steps_completed": 4, "steps_total": 4},
+        overall_score=85.5,
+        fillers_count=3,
+        silence_duration=5.2,
+        summary="Customer inquired about order status. Agent resolved successfully.",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db_session.add(analysis)
+    await db_session.commit()
+    await db_session.refresh(analysis)
+    return analysis
+
+
+@pytest_asyncio.fixture
+async def test_emotion_data(
+    db_session: AsyncSession,
+    test_analysis_result: AnalysisResult,
+) -> EmotionData:
+    """Create test emotion data."""
+    emotion = EmotionData(
+        id=uuid.uuid4(),
+        analysis_id=test_analysis_result.id,
+        timestamp=10.5,
+        emotion_type="satisfaction",
+        confidence=0.85,
+        audio_features={"pitch": 220.0, "energy": 0.6},
+        created_at=datetime.utcnow(),
+    )
+    db_session.add(emotion)
+    await db_session.commit()
+    await db_session.refresh(emotion)
+    return emotion
+
+
+@pytest_asyncio.fixture
+async def test_analysis_prompt(
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+) -> AnalysisPrompt:
+    """Create a test analysis prompt."""
+    prompt = AnalysisPrompt(
+        id=uuid.uuid4(),
+        tenant_id=test_tenant.id,
+        prompt_type=PromptType.QUALITY_SCORE,
+        name="Quality Score Prompt",
+        description="Evaluate call quality",
+        prompt_text="Please evaluate the following call transcript for quality.",
+        is_active=True,
+        is_default=False,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db_session.add(prompt)
+    await db_session.commit()
+    await db_session.refresh(prompt)
+    return prompt
+
+
+@pytest_asyncio.fixture
+async def test_default_prompt(
+    db_session: AsyncSession,
+    test_tenant: Tenant,
+) -> AnalysisPrompt:
+    """Create a default analysis prompt (cannot be deleted)."""
+    prompt = AnalysisPrompt(
+        id=uuid.uuid4(),
+        tenant_id=test_tenant.id,
+        prompt_type=PromptType.SUMMARY,
+        name="Default Summary Prompt",
+        description="Default summary prompt",
+        prompt_text="Summarize the following call transcript.",
+        is_active=True,
+        is_default=True,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db_session.add(prompt)
+    await db_session.commit()
+    await db_session.refresh(prompt)
+    return prompt
 
 
 # Custom marker for tests that require PostgreSQL (UUID type support)
